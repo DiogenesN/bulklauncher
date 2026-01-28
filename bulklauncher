@@ -1,0 +1,265 @@
+#!/bin/bash
+# bulklauncher 1.0
+# An app that allows you to launch multiple applications simultaneously.
+# You can add, remove, and select which apps to launch.
+# You can also set it to launch automatically after 30 seconds.
+# Depends:
+#	bash (>= 4.0),
+#	yad,
+#	coreutils,
+#	sed,
+#	gawk,
+#	grep
+# NOTE: For proper operation, copy this script to /usr/local/bin/
+
+conf_path="$HOME/.config/bulklauncher"
+list_file="$conf_path/list"
+automatic=0
+
+# create config dir
+if ! mkdir -p "$conf_path"; then
+	echo "Could not create configs!"
+	exit 1
+fi
+
+# first launch initialization
+if [ ! -f "$list_file" ]; then
+	echo "FALSE Launch_Automatically" > "$list_file"
+	echo "First launch: initialized config"
+else
+	echo "Config already exists"
+fi
+
+mapfile -t list < "$list_file"
+
+echo "Launched bulklauncher"
+
+# check if automatic launch countdown was selected
+read -r first rest < "$list_file"
+if [ "$first" = "TRUE" ]; then
+	automatic=1
+	echo "Countdown activated"
+	items=$(yad \
+		--list \
+		--checklist \
+		--no-headers\
+		--timeout-indicator=top\
+		--timeout=20\
+		--center\
+		--on-top\
+		--no-escape\
+		--text-align=center\
+		--title='Bulk Launcher'\
+		--buttons-layout=center\
+		--button='Stop Countdown':1\
+		--button='Disable Countdown':4\
+		--print-all \
+		--no-selection \
+		--separator=" " \
+		--column=No \
+		--column=Title \
+		${list[@]})
+else
+	echo "Countdown disabled"
+	items=$(yad \
+		--list \
+		--checklist \
+		--no-headers\
+		--center\
+		--on-top\
+		--no-escape\
+		--text-align=center\
+		--title='Bulk Launcher'\
+		--buttons-layout=center\
+		--button=Launch:0\
+		--button=Add:2\
+		--button=Remove:3\
+		--button=Close:1\
+		--print-all \
+		--no-selection \
+		--separator=" " \
+		--column=No \
+		--column=Title \
+		${list[@]})
+fi
+
+status=$?
+
+case "$status" in
+	1|252)
+		echo "Closed"
+		exit 0
+		;;
+	4)
+		echo "Countdown Disabled"
+		sed -i '1s/^[^[:space:]]\+/FALSE/' "$list_file"
+
+		# re-opening the app
+		exec bulklauncher&
+		exit 0
+		;;
+esac
+
+echo "Continuing"
+
+# adding an entry
+if [ $status -eq 2 ]; then
+	additem=$(yad\
+		--entry\
+		--undecorated\
+		--entry-label=Title\
+		--entry-text="Enter item title, title must be one word."\
+		--on-top\
+		--no-escape\
+		--text-align=center\
+		--title='Enter Item Title'\
+		--buttons-layout=center)
+	status="$?"
+	case "$status" in
+		1|252)
+			# the entry was closed
+			echo "Closed"
+			exit 0
+			;;
+			0)
+			# the entry was added
+			# writing only the first word
+			echo "TRUE $additem" | cut -d' ' -f1-2 >> "$list_file"
+			command=$(yad\
+				--entry\
+				--undecorated\
+				--entry-label=CMD\
+				--entry-text="Enter the command"\
+				--on-top\
+				--no-escape\
+				--text-align=center\
+				--title='Enter Item Command'\
+				--buttons-layout=center\
+				--button=Save:0)
+			# creating file that contains the command
+			exec_file=$conf_path/$(echo "$additem" | cut -d' ' -f1)
+			touch "$exec_file"
+			# writing the command to the file
+			echo "#!/bin/bash" > "$exec_file"
+			echo "$command&" >> "$exec_file"
+			# making executable
+			chmod +x $exec_file
+			# re-opening the app
+			exec bulklauncher&
+			# closing
+			echo "Closed"
+			exit 0
+			;;
+	esac
+fi
+
+# removing an item
+if [ $status -eq 3 ]; then
+	# reformating the file to arrage long line in colums by two
+	awk '{ for (i=1; i<=NF; i+=2) print $i, $(i+1) }' "$list_file" > "$list_file.tmp"\
+	 && mv "$list_file.tmp" "$list_file"
+
+	# getting the list but skipping the first line
+	mapfile -t list < <(tail -n +2 "$list_file" | sed 's/\bTRUE\b/FALSE/g')
+
+	items=$(yad\
+		--list\
+		--radiolist\
+		--center\
+		--on-top\
+		--no-escape\
+		--no-headers\
+		--undecorated\
+		--text-align=center\
+		--title='Remove an Item'\
+		--buttons-layout=center\
+		--button='Remove Selected':0\
+		--button='Close':1\
+		--print-column=2\
+		--no-selection \
+		--separator=" " \
+		--column=No \
+		--column=Title \
+		${list[@]})
+		status="$?"
+		
+		# exiting
+		case "$status" in
+			1|252)
+				echo "Closed"
+				exit 0
+				;;
+		esac
+		
+		# checking if the variable is empty
+		if [ -z "$items" ]; then
+			echo "Closed"
+			exit 0
+		fi
+
+		# remove the entry and the 
+		# associated executable file
+		# removes empty spaces
+		items=$(echo "$items" | awk '{$1=$1; print}')
+		# removes the entire line that contains the selected title
+		sed -i "\|^[^[:space:]]\+[[:space:]]\+$items\$|d" "$list_file"
+		# removes the associated executable file
+		rm -- "$conf_path/$items"
+		echo "Entry: $items removed!"
+		echo "File: $conf_path/$items removed!"
+
+		# re-opening the app
+		exec bulklauncher&
+		exit 0
+fi
+
+# saving changes (if the GUI autoexits,
+# it wipes the list file that's why
+# we first need to check if automatic
+# countdown is activated)
+if [ $automatic -ne 1 ]; then
+	echo "Saving changes"
+	echo "$items" > "$list_file";
+fi
+
+# Launching selected items
+launch_selected() {
+	local item
+	while IFS= read -r item; do
+		# Launch_Automatically is the default option
+		# if it's ticked then the next time user launches the app
+		# it starts a 30 seconds countdown
+		# and if no user actions are taken then
+		# it will close the app and launch the selected items
+		# that's why we need to skip it.
+		[ "$item" = "Launch_Automatically" ] && continue
+		# launching each executable file
+		# assiciated with the selected item
+		"$conf_path/$item" &
+		sleep 3
+	done <<< "$1"
+}
+
+if [ $status -eq 0 ] || [ $automatic -eq 1 ]; then
+	echo "Launching selected items"
+
+	if [ $automatic -ne 1 ]; then
+		echo "Saving changes"
+		echo "$items" > "$list_file"
+	fi
+
+	selectedItems=$(
+		awk '{
+			for (i=1; i<=NF; i+=2)
+				if ($i=="TRUE")
+					print $(i+1)
+		}' "$list_file"
+	)
+
+	launch_selected "$selectedItems"
+	exit 0
+fi
+
+echo "Exited"
+
+exit 0
