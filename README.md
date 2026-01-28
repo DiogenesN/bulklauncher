@@ -4,24 +4,24 @@ A simple apps launcher. You can launch multimple apps simultaneously with one cl
 # Installation/Usage
   1. Install the following libs:
 
-        yad
-        sed
-        gawk
-        grep
-        bash
-        coreutils
+         yad\
+         sed\
+         gawk\
+         grep\
+         bash\
+         coreutils
 
   2. Open a terminal and run:
 
-		 chmod +x ./bulklauncher
+		  chmod +x ./bulklauncher
 		
   3. Copy the script to /usr/local/bin:
   
-		 sudo cp ./bulklauncher /usr/local/bin/
+		  sudo cp ./bulklauncher /usr/local/bin/
 
   4. Launch the app:
 
-         bulklauncher
+          bulklauncher
 
 # NOTE:
 For proper operation, copy this script to /usr/local/bin.
