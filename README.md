@@ -4,11 +4,11 @@ A simple apps launcher. You can launch multimple apps simultaneously with one cl
 # Installation/Usage
   1. Install the following libs:
 
-         yad\
-         sed\
-         gawk\
-         grep\
-         bash\
+         yad
+         sed
+         gawk
+         grep
+         bash
          coreutils
 
   2. Open a terminal and run:
@@ -24,7 +24,7 @@ A simple apps launcher. You can launch multimple apps simultaneously with one cl
           bulklauncher
 
 # NOTE:
-For proper operation, copy this script to /usr/local/bin.
+For proper operation, copy the bulklauncher script to /usr/local/bin.
 
 # Screenshots
  On the first app launch:
