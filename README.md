@@ -26,6 +26,9 @@ A simple apps launcher. You can launch multimple apps simultaneously with one cl
 # NOTE:
 For proper operation, copy the bulklauncher script to /usr/local/bin.
 
+# Video overview
+[![Linux apps](https://img.youtube.com/vi/EIScKYU6a5c/0.jpg)](https://youtu.be/EIScKYU6a5c)
+
 # Screenshots
  On the first app launch:
 ![Alt text](https://raw.githubusercontent.com/DiogenesN/bulklauncher/main/1.png)
